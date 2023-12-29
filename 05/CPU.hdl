@@ -1,0 +1,103 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/05/CPU.hdl
+/**
+ * The Hack Central Processing unit (CPU).
+ * Parses the binary code in the instruction input and executes it according to the
+ * Hack machine language specification. In the case of a C-instruction, computes the
+ * function specified by the instruction. If the instruction specifies to read a memory
+ * value, the inM input is expected to contain this value. If the instruction specifies
+ * to write a value to the memory, sets the outM output to this value, sets the addressM
+ * output to the target address, and asserts the writeM output (when writeM == 0, any
+ * value may appear in outM).
+ * If the reset input is 0, computes the address of the next instruction and sets the
+ * pc output to that value. If the reset input is 1, sets pc to 0.
+ * Note: The outM and writeM outputs are combinational: they are affected by the
+ * instruction's execution during the current cycle. The addressM and pc outputs are
+ * clocked: although they are affected by the instruction's execution, they commit to
+ * their new values only in the next cycle.
+ */
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to restart the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // Address of next instruction
+
+    PARTS:
+    //// Replace this comment with your code.
+    Not(in=instruction[15], out=isAI);
+    Not(in=isAI, out=isCI);
+
+    Mux16(a=instruction, b=ALUoutput, sel=isCI, out=toA);
+
+    Or(a=isAI, b=instruction[5], out=loadAregi); // (save ALU output to A) or @x 
+    ARegister(in=toA, load=loadAregi, out=outA, out[0..14]=addressM);
+
+    And(a=isCI, b=instruction[4], out=loadDregi);
+    DRegister(in=ALUoutput, load=loadDregi, out=outD); // if save ALU output to D
+
+    Mux16(a=outA, b=inM, sel=instruction[12], out=MuxAM); // choose Aregister or inM to ALU
+
+    ALU(x=outD, y=MuxAM,
+        zx=instruction[11], nx=instruction[10],
+        zy=instruction[9], ny=instruction[8],
+        f=instruction[7], no=instruction[6],
+        out=ALUoutput, out=outM,
+        zr=outZr , ng=outNg);
+
+    And(a=instruction[3], b=isCI, out=writeM); // write M
+
+    // Control - calc jump condition by J(j1, j2, j3, zr, ng)
+    
+    // common var for choosing branch
+    Not(in=outZr, out=outNzr);
+    Not(in=outNg, out=outNNg);
+    Not(in=instruction[2], out=Nj1);
+    Not(in=instruction[1], out=Nj2);
+    Not(in=instruction[0], out=Nj3);
+    And(a=Nj1, b=Nj2, out=Nj1Nj2);
+    And(a=Nj1, b=Nj3, out=Nj1Nj3);
+    And(a=Nj2, b=Nj3, out=Nj2Nj3);
+    And(a=instruction[2], b=instruction[1], out=j1j2);
+    And(a=instruction[2], b=instruction[0], out=j1j3);
+    And(a=instruction[0], b=instruction[1], out=j2j3);
+
+    // branch
+    And(a=j1j2, b=instruction[0], out=JMP);     // unconditional jump
+    
+    And(a=Nj1Nj3,b=instruction[1], out=ifjeq);
+    And(a=outZr, b=ifjeq, out=JEQ);             // = 0 jump
+    
+    And(a=j1j3,b=Nj2, out=ifjne);
+    And(a=outNzr, b=ifjne, out=JNE);             // != 0 jump
+    
+    And(a=Nj2Nj3,b=instruction[2], out=ifjlt);
+    And(a=outNg, b=ifjlt, out=JLT);             // < 0 jump
+
+    And(a=Nj1Nj2, b=instruction[0], out=ifjgt);
+    And(a=outNNg, b=outNzr , out=outLg);
+    And(a=outLg, b=ifjgt, out=JGT);             // > 0 jump
+    
+    And(a=j1j2, b=Nj3, out=ifjle);
+    Or(a=outZr, b=outNg, out=outZrorNg);
+    And(a=outZrorNg, b=ifjle, out=JLE);         // <= 0 jump
+
+    And(a=j2j3, b=Nj1, out=ifjge);
+    Or(a=outZr, b=outLg, out=outZrorLg);
+    And(a=outZrorLg, b=ifjge, out=JGE);         // >= 0 jump
+
+    // merge all jump condition
+    Or8Way(in[0]=JMP, in[1]=JEQ, in[2]=JNE, in[3]=JLT,
+            in[4]=JGT, in[5]=JLE, in[6]=JGE, out=jumpCond); // if need jump
+
+    And(a=isCI, b=jumpCond, out=loadPc); // c-instr and need jump
+    PC(in=outA, load=loadPc, inc=true, reset=reset, out[0..14]=pc); // pc-gate: loadPc(true) will skip inc
+}
