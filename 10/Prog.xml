@@ -1,0 +1,32 @@
+<root>
+<class>
+<keyword> class </keyword>
+<className>
+<identifier> SquareGame </identifier>
+</className>
+<symbol> { </symbol>
+<classVarDec>
+<keyword> field </keyword>
+<type>
+<className>
+<identifier> Square </identifier>
+</className>
+</type>
+<varName>
+<identifier> square </identifier>
+</varName>
+<symbol> ; </symbol>
+</classVarDec>
+<classVarDec>
+<keyword> field </keyword>
+<type>
+<keyword> int </keyword>
+</type>
+<varName>
+<identifier> direction </identifier>
+</varName>
+<symbol> ; </symbol>
+</classVarDec>
+<symbol> } </symbol>
+</class>
+</root>
