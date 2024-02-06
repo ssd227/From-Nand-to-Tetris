@@ -1,0 +1,20 @@
+function Point.distance 2
+push argument 0
+pop pointer 0
+push this 0
+sub
+call other.getx 0
+pop local 0
+push this 1
+sub
+call other.gety 0
+pop local 1
+push local 0
+call Math.multiply 2
+push local 0
+add
+push local 1
+call Math.multiply 2
+push local 1
+call Math.sqrt 1
+return
